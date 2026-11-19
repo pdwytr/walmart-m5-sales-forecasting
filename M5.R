@@ -1,15 +1,22 @@
+# Packages: run install_packages.R once. Expects the Kaggle M5 files in ./M5/
 library(vroom)
+library(stringr)
+library(dplyr)
+library(forecast)   # auto.arima, forecast, arimaorder
+library(caret)      # dummyVars
+library(vars)       # VARselect
+library(lmtest)     # grangertest
+
 prices = vroom("M5/sell_prices.csv")
 calendar=vroom("M5/calendar.csv")
 train = vroom("M5/sales_train_validation.csv")
-library(ggplot2)
-library(stringr)
-library(regr) 
-library(dplyr)
-library(forecast)
-library(caret)
-library(vars)
-library(DMwR)
+
+# regr.eval() used to come from DMwR (archived from CRAN); same metrics, no dependency
+regr.eval = function(trues, preds){
+  err = trues - preds
+  c(mae = mean(abs(err)), mse = mean(err^2), rmse = sqrt(mean(err^2)),
+    mape = mean(abs(err / trues)))
+}
 
 ###sample output
 setwd("C:/Users/multi/Desktop")
@@ -120,8 +127,10 @@ data = data_each
 dim(data)
 head(data)
 colnames(data)= c("ItemsSold","SNAP","event","weekday","month","prices")
-levels(data$event) = c("Cultural" , "National",  "Religious", "Sporting","no")
-data[is.na(data$event),]$event = "no"
+data$event[is.na(data$event)] = "no"
+# explicit levels keep dummy-column order fixed (the xreg column indices below depend on it)
+data$event = factor(data$event, levels = c("Cultural" , "National",  "Religious", "Sporting","no"))
+data$weekday = factor(data$weekday)
 str(data)
 plot(data$ItemsSold)
 which.min(data$ItemsSold)
@@ -156,7 +165,7 @@ rm(trainRowID)
 
 #1.granger causality of prices on ItemsSold
 VARselect(data$ItemsSold)
-grangertest(data$ItemsSold,data$price,order=10)
+grangertest(data$ItemsSold,data$prices,order=10)
 #prices are granger causing itemsold
 
 
@@ -282,9 +291,8 @@ dim(val_data)
 head(val_data)
 colnames(val_data)= c("weekday","event","SNAP","month")
 val_data$weekday = as.factor(val_data$weekday)
-val_data$event = as.factor(val_data$event)
-levels(val_data$event) = c("Cultural" , "National",  "Religious", "Sporting","no")
-val_data[is.na(val_data$event),]$event = "no"
+val_data$event[is.na(val_data$event)] = "no"
+val_data$event = factor(val_data$event, levels = c("Cultural" , "National",  "Religious", "Sporting","no"))
 str(val_data)
 
 #2.dummyfiying
@@ -303,7 +311,7 @@ pred = data.frame(forecast(mod_4, h=56, xreg=as.matrix(val_data_dum[,-c(1,2,9,10
 #We had 216 observations. dividing by 216 is are the predictions for each of these set.
 pred_points = (data.frame(pred)/length(train_each_id))$Point.Forecast
 
-length(train_each_id)==dim(CA_FOOD)
+length(train_each_id)==nrow(CA_FOOD)
 
 ans = data.frame()
 for(i in 1:length(train_each_id)){
