@@ -300,7 +300,7 @@ sum(is.na(val_data_dum))
 #Prediction
 str(val_data_dum)
 #we had removed no and friday to remove redundantency. doing the same here 
-#-c(1,2,8,9)
+#-c(1,2,9,10)
 pred = data.frame(forecast(mod_4, h=56, xreg=as.matrix(val_data_dum[,-c(1,2,9,10)])))
 #We had 216 observations. dividing by 216 is are the predictions for each of these set.
 pred_points = (data.frame(pred)/length(train_each_id))$Point.Forecast
@@ -313,4 +313,4 @@ ans = cbind(id = train_each_id,
                               nrow = length(train_each_id))))
 dim(ans)
 ##Saving the predictions for CA state and FOOD category
-write.csv(ans,"CA_FOOD.csv")
+write.csv(ans,"CA_FOOD.csv", row.names = FALSE)
