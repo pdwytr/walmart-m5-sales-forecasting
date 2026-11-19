@@ -1,46 +1,49 @@
-# Estimate-the-unit-sales-of-Walmart-retail-goods
+# Forecasting Walmart Retail Unit Sales (M5 Accuracy) with ARIMAX in R
 
-## Introduction
-Here is my submission for the M5 accuracy competition conducted by [Makridakis Open Forecasting Center (MOFC) at the University of Nicosia](https://www.kaggle.com/c/m5-forecasting-accuracy)
-### Competition
-Hierarchical sales data from Walmart, the world’s largest company by revenue, is being used to forecast daily sales for the next 28 days. The data covers stores in three US states (California, Texas, and Wisconsin) and includes item level, department, product categories, and store details. Also, it has explanatory variables such as price, promotions, day of the week, and special events. Together, one may use this robust dataset to improve forecasting accuracy.
-### Evaluation
-this competition uses a Weighted Root Mean Squared Scaled Error (RMSSE). Extensive details about the metric, scaling, and weighting can be found in the attached Guide
-### DataSet
-The M5 dataset, generously made available by Walmart, involves the unit sales of various products sold in the USA, organized in grouped time series. More specifically, the dataset involves the unit sales of 3,049 products, classified into 3 product categories (Hobbies, Foods, and Household) and 7 product departments, in which the categories as mentioned earlier are disaggregated.  The products are sold across ten stores located in three states (CA, TX, and WI)
-#### Calender.csv
-Contains information about the dates the products are sold.
-*	date: The date in a “y-m-d” format.
-*	wm_yr_wk: The id of the week the date belongs to.
-*	weekday: The type of the day (Saturday, Sunday, …, Friday).
-*	wday: The id of the weekday, starting from Saturday.
-*	month: The month of the date.
-*	year: The year of the date.
-*	event_name_1: If the date includes an event, the name of this event.
-*	event_type_1: If the date includes an event, the type of this event.
-*	event_name_2: If the date includes a second event, the name of this event.
-*	event_type_2: If the date includes a second event, the type of this event.
-*	snap_CA, snap_TX, and snap_WI: A binary variable (0 or 1) indicating whether the stores of CA, TX or WI allow SNAP  purchases on the examined date. 1 indicates that SNAP purchases are allowed.
-#### sell_prices
-Contains information about the price of the products sold per store and date.
-*	store_id: The id of the store where the product is sold. 
-*	item_id: The id of the product.
-*	wm_yr_wk: The id of the week.
-*	sell_price: The price of the product for the given week/store. The price is provided per week (average across seven days). If not available, this means that the product was not sold during the examined week. Note that although prices are constant at weekly basis, they may change through time (both training and test set).  
-#### Sales_train
-Contains the historical daily unit sales data per product and store.
-*	item_id: The id of the product.
-*	dept_id: The id of the department the product belongs to.
-*	cat_id: The id of the category the product belongs to.
-*	store_id: The id of the store where the product is sold.
-*	state_id: The State where the store is located.
-*	d_1, d_2, …, d_i, … d_1941: The number of units sold at day i, starting from 2011-01-29. 
+A baseline ARIMAX forecaster for the Kaggle M5 Forecasting - Accuracy competition: 28-day-ahead unit sales for Walmart products, using SNAP days, calendar events, weekday, month and (in early model versions) price as regressors.
 
-### Submission
-The main idea of the the first submission is to build a basic working model as a starting point. ARIMAX model has been used. The modelling is done on a part of data belonging to CA state and FOOD category. The modelling consists of the following parts
-##### Exploratory Data analysis
-##### Data Preperation
-##### Modelling
-##### Predictions
-##### Interpretation
+## Competition context
 
+[M5 Forecasting - Accuracy](https://www.kaggle.com/c/m5-forecasting-accuracy) was run by the Makridakis Open Forecasting Center (MOFC), University of Nicosia. The task is to forecast 28 days of unit sales for 30,490 item-store series from Walmart stores in California, Texas and Wisconsin (3,049 products, 3 categories, 7 departments, 10 stores). Submissions are scored with a Weighted Root Mean Squared Scaled Error (RMSSE); see the competition's evaluation page and M5 guide for details.
+
+## Approach (as implemented in `M5.R`)
+
+There are 30,490 series, so the script starts with a simple, interpretable baseline: one model per state x category group instead of one per series. It currently models the CA / FOODS group only.
+
+1. Summing: daily unit sales of all CA FOODS series are summed into one series (1,913 days).
+2. Regressors: SNAP flag (`snap_CA`), event type, weekday, month, and the summed weekly price for the group. Dummy variables are built with `caret::dummyVars`; one level each of event and weekday is dropped to avoid redundancy.
+3. Exploration: Granger causality of price on sales (`lmtest::grangertest`), `VARselect`, decomposition, ACF/PACF.
+4. Models (`forecast::auto.arima` with `xreg`), validated on the last 28 days of history:
+   - `mod_1`: seasonal frequency 30
+   - `mod_2`: frequency 7. Ljung-Box residual checks favour it over `mod_1`.
+   - `mod_3`: frequency 7 + log transform (`lambda = 0`)
+   - `mod_4`: frequency 7 + log transform + price excluded (zero-sales days dropped). This is the final model.
+   Errors (MAE, MSE, RMSE, MAPE) are computed for each via `regr.eval`.
+5. Prediction: `mod_4` forecasts 56 days (the validation and evaluation windows). The group forecast is divided by the number of series, so every series in the group gets the average per-item forecast. The result is written to `CA_FOOD.csv`.
+
+Scope note: the script covers the CA / FOODS group only (the SNAP column is `snap_CA`; change it to model other groups). Evaluation metrics are computed when you run the script; this repo does not include a saved results file or leaderboard score.
+
+## Tech stack
+
+R with `vroom`, `stringr`, `dplyr`, `forecast`, `caret`, `vars`, `lmtest`.
+
+## Quickstart
+
+1. Download the data from the [M5 competition page](https://www.kaggle.com/c/m5-forecasting-accuracy/data) (requires a Kaggle account, or `kaggle competitions download -c m5-forecasting-accuracy`).
+2. Put these files in an `M5/` folder next to `M5.R`:
+   - `M5/calendar.csv` - dates, weekday, month, events, SNAP flags per state
+   - `M5/sell_prices.csv` - weekly sell price per store and item
+   - `M5/sales_train_validation.csv` - daily unit sales `d_1`..`d_1913` per item-store
+3. Install dependencies once, then run from the repo root:
+
+```
+Rscript install_packages.R
+Rscript M5.R
+```
+
+`M5.R` is written as an exploratory script with plots, so running it section by section in RStudio is also fine. Output: `CA_FOOD.csv` with an `id` column and 56 forecast columns (`X1`..`X56`).
+
+## Repo contents
+
+- `M5.R`: EDA, modelling and prediction script
+- `install_packages.R`: installs the CRAN packages used
