@@ -18,12 +18,7 @@ regr.eval = function(trues, preds){
     mape = mean(abs(err / trues)))
 }
 
-###sample output
-setwd("C:/Users/multi/Desktop")
-sample_output = read.csv("sub_dt_lgb.csv ")
-colnames(sample_output)
-dim(sample_output)
-#60980x29
+# Kaggle sample submission format: 60980 rows x 29 columns (id + F1..F28)
 
 
 #-------------------------------------------------EDA-------------------------------------------------
@@ -134,7 +129,6 @@ data$weekday = factor(data$weekday)
 str(data)
 plot(data$ItemsSold)
 which.min(data$ItemsSold)
-#data = data[-which(data$ItemsSold==0),]
 
 
 #3.dummyfiying
@@ -313,11 +307,10 @@ pred_points = (data.frame(pred)/length(train_each_id))$Point.Forecast
 
 length(train_each_id)==nrow(CA_FOOD)
 
-ans = data.frame()
-for(i in 1:length(train_each_id)){
-  x = cbind(id = train_each_id[i],data.frame(matrix(pred_points,nrow = 1)))
-  ans = rbind(ans,x)  
-}
+# one identical forecast row (X1..X56) per series id
+ans = cbind(id = train_each_id,
+            data.frame(matrix(rep(pred_points, each = length(train_each_id)),
+                              nrow = length(train_each_id))))
 dim(ans)
 ##Saving the predictions for CA state and FOOD category
 write.csv(ans,"CA_FOOD.csv")
