@@ -1,4 +1,6 @@
-M5/
-CA_FOOD.csv
+data/*
+!data/README.md
+output/*
+!output/.gitkeep
 .Rhistory
 .RData

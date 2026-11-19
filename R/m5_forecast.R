@@ -7,9 +7,9 @@ library(caret)      # dummyVars
 library(vars)       # VARselect
 library(lmtest)     # grangertest
 
-prices = vroom("M5/sell_prices.csv")
-calendar=vroom("M5/calendar.csv")
-train = vroom("M5/sales_train_validation.csv")
+prices = vroom("data/sell_prices.csv")
+calendar=vroom("data/calendar.csv")
+train = vroom("data/sales_train_validation.csv")
 
 # regr.eval() used to come from DMwR (archived from CRAN); same metrics, no dependency
 regr.eval = function(trues, preds){
@@ -313,4 +313,5 @@ ans = cbind(id = train_each_id,
                               nrow = length(train_each_id))))
 dim(ans)
 ##Saving the predictions for CA state and FOOD category
-write.csv(ans,"CA_FOOD.csv", row.names = FALSE)
+dir.create("output", showWarnings = FALSE)
+write.csv(ans, "output/ca_food_forecast.csv", row.names = FALSE)
